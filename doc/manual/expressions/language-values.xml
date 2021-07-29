@@ -180,6 +180,16 @@ stdenv.mkDerivation {
   for the given file or directory name.
   </para>
 
+  <para>
+  String interpolation is supported in any paths except those in angle
+  brackets. <literal>./${foo}-${bar}.nix</literal> is a more convenient
+  way of writing <literal>./. + "/" + foo + "-" + bar + ".nix"</literal>
+  or <literal>./. + "/${foo}-${bar}.nix"</literal>. At least one slash
+  must appear before the interpolation for this to be recognized as a
+  a path. <literal>a.${foo}/b.${bar}</literal> is a syntactically valid
+  division operation. <literal>./a.${foo}/b.${bar}</literal> is a path.
+  </para>
+
   </listitem>
 
   <listitem><para><emphasis>Booleans</emphasis> with values
