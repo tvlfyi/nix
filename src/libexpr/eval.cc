@@ -1589,7 +1589,7 @@ std::optional<string> EvalState::tryAttrsToString(const Pos & pos, Value & v,
 }
 
 string EvalState::coerceToString(const Pos & pos, Value & v, PathSet & context,
-    bool coerceMore, bool copyToStore, bool canonizePath)
+    bool coerceMore, bool copyToStore, bool canonicalizePath)
 {
     forceValue(v);
 
@@ -1601,7 +1601,7 @@ string EvalState::coerceToString(const Pos & pos, Value & v, PathSet & context,
     }
 
     if (v.type == tPath) {
-        Path path(canonizePath ? canonPath(v.path) : v.path);
+        Path path(canonicalizePath ? canonPath(v.path) : v.path);
         return copyToStore ? copyPathToStore(context, path) : path;
     }
 
