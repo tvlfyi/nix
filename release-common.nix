@@ -50,7 +50,7 @@ rec {
   buildDeps =
     [ curl
       bzip2 xz brotli editline
-      openssl pkgconfig sqlite
+      openssl pkg-config sqlite
       boost
 
       # Tests
