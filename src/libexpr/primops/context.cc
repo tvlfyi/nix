@@ -144,41 +144,54 @@ static void prim_appendContext(EvalState & state, const Pos & pos, Value * * arg
 
     auto sPath = state.symbols.create("path");
     auto sAllOutputs = state.symbols.create("allOutputs");
-    for (auto & i : *args[1]->attrs) {
-        if (!state.store->isStorePath(i.name))
+
+    for (auto & i : *args[1]->attrs) { // args[1] = builtins.unsafeAppendContext "mystring" { "foo.drv" = { outputs = [ "out" ]; }; }
+
+        if (!state.store->isStorePath(i.name)) // key has to be a store path
             throw EvalError("Context key '%s' is not a store path, at %s", i.name, i.pos);
-        if (!settings.readOnlyMode)
-            state.store->ensurePath(i.name);
-        state.forceAttrs(*i.value, *i.pos);
-        auto iter = i.value->attrs->find(sPath);
-        if (iter != i.value->attrs->end()) {
-            if (state.forceBool(*iter->value, *iter->pos))
-                context.insert(i.name);
+
+
+        if (!settings.readOnlyMode) // ??? we don't care
+            state.store->ensurePath(i.name); // this can cause substituion, but prob. not other stuff? check!
+
+
+        state.forceAttrs(*i.value, *i.pos); // the value has to be an attrset (the { outputs = ...; } set)
+
+
+        auto iter = i.value->attrs->find(sPath); // get the (optional) boolean (?!) at `.path`
+        if (iter != i.value->attrs->end()) { // if it exists
+            if (state.forceBool(*iter->value, *iter->pos)) // and if it is true
+                context.insert(i.name); // insert the plain path into the string context (ends up in inputSrcs)
         }
 
-        iter = i.value->attrs->find(sAllOutputs);
-        if (iter != i.value->attrs->end()) {
-            if (state.forceBool(*iter->value, *iter->pos)) {
-                if (!isDerivation(i.name)) {
+
+        iter = i.value->attrs->find(sAllOutputs); // get the (optional) boolean `allOutputs`
+        if (iter != i.value->attrs->end()) { // if it exists
+            if (state.forceBool(*iter->value, *iter->pos)) { // and if it is true
+                if (!isDerivation(i.name)) { // and if it isn't a `.drv` path
                     throw EvalError("Tried to add all-outputs context of %s, which is not a derivation, to a string, at %s", i.name, i.pos);
                 }
-                context.insert("=" + string(i.name));
+
+                // if it *is* a .drv path
+                context.insert("=" + string(i.name)); // this `=` encoding is equivalent to `allOutputs = true;`
             }
         }
 
-        iter = i.value->attrs->find(state.sOutputs);
-        if (iter != i.value->attrs->end()) {
-            state.forceList(*iter->value, *iter->pos);
-            if (iter->value->listSize() && !isDerivation(i.name)) {
+        iter = i.value->attrs->find(state.sOutputs); // get the (optional) list `outputs`
+        if (iter != i.value->attrs->end()) { // if it exists
+            state.forceList(*iter->value, *iter->pos); // and if it's a list (of strings)
+            if (iter->value->listSize() && !isDerivation(i.name)) { // if bullshit, and if it's not a .drv
                 throw EvalError("Tried to add derivation output context of %s, which is not a derivation, to a string, at %s", i.name, i.pos);
             }
-            for (unsigned int n = 0; n < iter->value->listSize(); ++n) {
-                auto name = state.forceStringNoCtx(*iter->value->listElems()[n], *iter->pos);
-                context.insert("!" + name + "!" + string(i.name));
+
+            for (unsigned int n = 0; n < iter->value->listSize(); ++n) { // iterate over all the output names
+                auto name = state.forceStringNoCtx(*iter->value->listElems()[n], *iter->pos); // fail if the output name has a context
+                context.insert("!" + name + "!" + string(i.name)); // encode it as the `!<outname>!<drvpath>` variant
             }
         }
     }
 
+    // return a new string with the new context
     mkString(v, orig, context);
 }
 

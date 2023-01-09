@@ -1545,6 +1545,7 @@ string EvalState::forceString(Value & v, PathSet & context, const Pos & pos)
 }
 
 
+/// doesn't *discard* the string context, but *ensures* that the context is empty
 string EvalState::forceStringNoCtx(Value & v, const Pos & pos)
 {
     string s = forceString(v, pos);

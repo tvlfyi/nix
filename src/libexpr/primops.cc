@@ -37,9 +37,15 @@ std::pair<string, string> decodeContext(const string & s)
 {
     if (s.at(0) == '!') {
         size_t index = s.find("!", 1);
+        // !name!path -> (path, name)
         return std::pair<string, string>(string(s, index + 1), string(s, 1, index - 1));
     } else
-        return std::pair<string, string>(s.at(0) == '/' ? s : string(s, 1), "");
+        return std::pair<string, string>(
+            // v-- irgendein komischer pfad ???
+            s.at(0) == '/' ? s : string(s, 1),
+            // v-- empty string
+            ""
+      );
 }
 
 
@@ -682,11 +688,12 @@ static void prim_derivationStrict(EvalState & state, const Pos & pos, Value * * 
            in the graph must be added to this derivation's list of
            inputs to ensure that they are available when the builder
            runs. */
-        if (path.at(0) == '=') {
+        if (path.at(0) == '=') { // <- das ist die Sonderlockenbranch
             /* !!! This doesn't work if readOnlyMode is set. */
-            PathSet refs;
+            PathSet refs; // <- set aus allen store pfaden die in `path` (eine .drv) vorkommen
             state.store->computeFSClosure(string(path, 1), refs);
-            for (auto & j : refs) {
+
+            for (auto & j : refs) { // fuer jede dieser refs ... (`j`)
                 drv.inputSrcs.insert(j);
                 if (isDerivation(j))
                     drv.inputDrvs[j] = state.store->queryDerivationOutputNames(j);
