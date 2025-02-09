@@ -439,14 +439,14 @@ public:
 
 void startProgressBar(bool printBuildLogs)
 {
-    logger = new ProgressBar(
+    logger = std::make_unique<ProgressBar>(
         printBuildLogs,
         isatty(STDERR_FILENO) && getEnv("TERM", "dumb") != "dumb");
 }
 
 void stopProgressBar()
 {
-    auto progressBar = dynamic_cast<ProgressBar *>(logger);
+    auto progressBar = dynamic_cast<ProgressBar*>(logger.get());
     if (progressBar) progressBar->stop();
 
 }

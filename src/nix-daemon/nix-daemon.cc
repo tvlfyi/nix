@@ -234,7 +234,7 @@ struct RetrieveRegularNARSink : ParseSink
 };
 
 
-static void performOp(TunnelLogger * logger, ref<Store> store,
+static void performOp(TunnelLogger* logger, ref<Store> store,
     bool trusted, unsigned int clientVersion,
     Source & from, Sink & to, unsigned int op)
 {
@@ -757,9 +757,9 @@ static void processConnection(bool trusted,
     if (clientVersion < 0x10a)
         throw Error("the Nix client version is too old");
 
-    auto tunnelLogger = new TunnelLogger(clientVersion);
-    auto prevLogger = nix::logger;
-    logger = tunnelLogger;
+    auto prevLogger = std::move(nix::logger);
+    logger = std::make_unique<TunnelLogger>(clientVersion);
+    auto* tunnelLogger = dynamic_cast<TunnelLogger*>(logger.get()); // wtf ...
 
     unsigned int opCount = 0;
 
