@@ -3874,7 +3874,7 @@ private:
     Pipe outPipe;
 
     /* The substituter thread. */
-    std::thread thr;
+    std::jthread thr;
 
     std::promise<void> promise;
 
@@ -4104,7 +4104,7 @@ void SubstitutionGoal::tryToRun()
 
     promise = std::promise<void>();
 
-    thr = std::thread([this]() {
+    thr = std::jthread([this]() {
         try {
             /* Wake up the worker loop when we're done. */
             Finally updateStats([this]() { outPipe.writeSide.close(); });

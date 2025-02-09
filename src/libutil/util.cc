@@ -1089,7 +1089,7 @@ void runProgram2(const RunOptions & options)
 
     out.writeSide.close();
 
-    std::thread writerThread;
+    std::jthread writerThread;
 
     std::promise<void> promise;
 
@@ -1101,7 +1101,7 @@ void runProgram2(const RunOptions & options)
 
     if (source) {
         in.readSide.close();
-        writerThread = std::thread([&]() {
+        writerThread = std::jthread([&]() {
             try {
                 std::vector<unsigned char> buf(8 * 1024);
                 while (true) {
