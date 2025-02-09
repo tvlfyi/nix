@@ -5,15 +5,16 @@
 #include "finally.hh"
 #include "serialise.hh"
 
+#include <atomic>
 #include <cctype>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <future>
 #include <iostream>
 #include <sstream>
 #include <thread>
-#include <future>
 
 #include <fcntl.h>
 #include <grp.h>
@@ -1171,7 +1172,17 @@ void closeOnExec(int fd)
 //////////////////////////////////////////////////////////////////////
 
 
-bool _isInterrupted = false;
+namespace {
+    std::atomic<bool> isInterrupted{false};
+}
+
+bool getIsInterrupted() {
+    return isInterrupted.load(std::memory_order_seq_cst);
+}
+
+void setIsInterrupted(bool value) {
+    isInterrupted.store(value, std::memory_order_seq_cst);
+}
 
 static thread_local bool interruptThrown = false;
 thread_local std::function<bool()> interruptCheck;
@@ -1492,7 +1503,7 @@ static void signalHandlerThread(sigset_t set)
 
 void triggerInterrupt()
 {
-    _isInterrupted = true;
+    setIsInterrupted(true);
 
     {
         auto interruptCallbacks(_interruptCallbacks.lock());

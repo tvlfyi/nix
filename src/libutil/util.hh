@@ -320,7 +320,8 @@ void closeOnExec(int fd);
 
 /* User interruption. */
 
-extern bool _isInterrupted;
+bool getIsInterrupted();
+void setIsInterrupted(bool value);
 
 extern thread_local std::function<bool()> interruptCheck;
 
@@ -330,7 +331,7 @@ void _interrupted();
 
 void inline checkInterrupt()
 {
-    if (_isInterrupted || (interruptCheck && interruptCheck()))
+    if (getIsInterrupted() || (interruptCheck && interruptCheck()))
         _interrupted();
 }
 
