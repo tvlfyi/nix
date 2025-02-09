@@ -67,7 +67,7 @@ private:
 
     Sync<State> state_;
 
-    std::thread updateThread;
+    std::jthread updateThread;
 
     std::condition_variable quitCV, updateCV;
 
@@ -81,7 +81,7 @@ public:
         , isTTY(isTTY)
     {
         state_.lock()->active = isTTY;
-        updateThread = std::thread([&]() {
+        updateThread = std::jthread([&]() {
             auto state(state_.lock());
             while (state->active) {
                 if (!state->haveUpdate)
