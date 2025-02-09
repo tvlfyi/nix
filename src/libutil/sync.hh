@@ -44,7 +44,7 @@ public:
         friend Sync;
         Lock(Sync * s) : s(s), lk(s->mutex) { }
     public:
-        Lock(Lock && l) : s(l.s) { abort(); }
+        Lock(Lock && l) = delete;
         Lock(const Lock & l) = delete;
         ~Lock() { }
         T * operator -> () { return &s->data; }
