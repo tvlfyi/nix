@@ -23,7 +23,7 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::shutdown()
 {
-    std::vector<std::thread> workers;
+    std::vector<std::jthread> workers;
     {
         auto state(state_.lock());
         quit = true;

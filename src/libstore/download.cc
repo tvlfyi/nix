@@ -463,7 +463,7 @@ struct CurlDownloader : public Downloader
        pipe instead. */
     Pipe wakeupPipe;
 
-    std::thread workerThread;
+    std::jthread workerThread;
 
     CurlDownloader()
         : mt19937(rd())
@@ -484,7 +484,7 @@ struct CurlDownloader : public Downloader
         wakeupPipe.create();
         fcntl(wakeupPipe.readSide.get(), F_SETFL, O_NONBLOCK);
 
-        workerThread = std::thread([&]() { workerThreadEntry(); });
+        workerThread = std::jthread([&]() { workerThreadEntry(); });
     }
 
     ~CurlDownloader()

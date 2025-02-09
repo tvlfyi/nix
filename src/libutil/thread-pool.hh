@@ -47,7 +47,7 @@ private:
         std::queue<work_t> pending;
         size_t active = 0;
         std::exception_ptr exception;
-        std::vector<std::thread> workers;
+        std::vector<std::jthread> workers;
         bool draining = false;
     };
 

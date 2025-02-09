@@ -15,12 +15,12 @@ namespace nix {
 class MonitorFdHup
 {
 private:
-    std::thread thread;
+    std::jthread thread;
 
 public:
     MonitorFdHup(int fd)
     {
-        thread = std::thread([fd]() {
+        thread = std::jthread([fd]() {
             while (true) {
               /* Wait indefinitely until a POLLHUP occurs. */
               struct pollfd fds[1];
