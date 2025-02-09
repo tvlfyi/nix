@@ -209,9 +209,9 @@ struct CurlDownloader : public Downloader
             try {
               act.progress(dlnow, dltotal);
             } catch (nix::Interrupted &) {
-              assert(_isInterrupted);
+              assert(getIsInterrupted());
             }
-            return _isInterrupted;
+            return getIsInterrupted();
         }
 
         static int progressCallbackWrapper(void * userp, double dltotal, double dlnow, double ultotal, double ulnow)
@@ -409,7 +409,7 @@ struct CurlDownloader : public Downloader
                 attempt++;
 
                 auto exc =
-                    code == CURLE_ABORTED_BY_CALLBACK && _isInterrupted
+                    code == CURLE_ABORTED_BY_CALLBACK && getIsInterrupted()
                     ? DownloadError(Interrupted, fmt("%s of '%s' was interrupted", request.verb(), request.uri))
                     : httpStatus != 0
                     ? DownloadError(err,

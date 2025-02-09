@@ -764,7 +764,7 @@ static void processConnection(bool trusted,
     unsigned int opCount = 0;
 
     Finally finally([&]() {
-        _isInterrupted = false;
+        setIsInterrupted(false);
         prevLogger->log(lvlDebug, fmt("%d operations", opCount));
     });
 
