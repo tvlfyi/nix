@@ -17,18 +17,18 @@ private:
 
 public:
 
-    ref<T>(const ref<T> & r)
+    ref(const ref<T> & r)
         : p(r.p)
     { }
 
-    explicit ref<T>(const std::shared_ptr<T> & p)
+    explicit ref(const std::shared_ptr<T> & p)
         : p(p)
     {
         if (!p)
             throw std::invalid_argument("null pointer cast to ref");
     }
 
-    explicit ref<T>(T * p)
+    explicit ref(T * p)
         : p(p)
     {
         if (!p)
