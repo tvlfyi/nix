@@ -103,9 +103,9 @@ Activity::Activity(Logger & logger, Verbosity lvl, ActivityType type,
 
 struct JSONLogger : Logger
 {
-    Logger & prevLogger;
+    std::unique_ptr<Logger> prevLogger;
 
-    JSONLogger(Logger & prevLogger) : prevLogger(prevLogger) { }
+    JSONLogger(std::unique_ptr<Logger>&& prev) : prevLogger(std::move(prev)) { }
 
     void addFields(nlohmann::json & json, const Fields & fields)
     {
@@ -120,9 +120,8 @@ struct JSONLogger : Logger
                 abort();
     }
 
-    void write(const nlohmann::json & json)
-    {
-        prevLogger.log(lvlError, "@nix " + json.dump());
+    void write(const nlohmann::json & json) {
+        prevLogger->log(lvlError, "@nix " + json.dump());
     }
 
     void log(Verbosity lvl, const FormatOrString & fs) override
@@ -167,8 +166,8 @@ struct JSONLogger : Logger
     }
 };
 
-std::unique_ptr<Logger> makeJSONLogger(Logger & prevLogger) {
-    return std::make_unique<JSONLogger>(prevLogger);
+std::unique_ptr<Logger> makeJSONLogger(std::unique_ptr<Logger>&& prevLogger) {
+    return std::make_unique<JSONLogger>(std::move(prevLogger));
 }
 
 static Logger::Fields getFields(nlohmann::json & json)
