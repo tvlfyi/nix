@@ -104,6 +104,8 @@ AC_LANG_PUSH(C++)
 AC_CHECK_HEADERS([locale])
 AC_LANG_POP(C++)
 
+# Check for F_GETPATH which we use on non-Linux instead of /proc
+AC_CHECK_DECLS([F_GETPATH], [], [], [[#include <fcntl.h>]])
 
 AC_DEFUN([NEED_PROG],
 [

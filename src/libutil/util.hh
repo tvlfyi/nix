@@ -186,6 +186,13 @@ public:
     operator Path() const { return path; }
 };
 
+/*
+ * Will attempt to guess *A* path associated that might lead to the same file as used by this
+ * file descriptor.
+ *
+ * The returned string should NEVER be used as a valid path.
+ */
+std::string guessOrInventPathFromFD(int fd);
 
 class AutoCloseFD
 {
@@ -202,6 +209,14 @@ public:
     explicit operator bool() const;
     int release();
     void close();
+
+    /*
+     * Will attempt to guess *A* path associated that might lead to the same file as used by this
+     * file descriptor.
+     *
+     * The returned string should NEVER be used as a valid path.
+     */
+    std::string guessOrInventPath() const { return guessOrInventPathFromFD(fd); }
 };
 
 
