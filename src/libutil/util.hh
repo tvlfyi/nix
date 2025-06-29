@@ -105,9 +105,15 @@ string readFile(const Path & path, bool drain = false);
 void readFile(const Path & path, Sink & sink);
 
 /* Write a string to a file. */
-void writeFile(const Path & path, const string & s, mode_t mode = 0666, bool sync = false);
+void writeFile(const Path & path, const string & s, mode_t mode = 0666);
 
-void writeFile(const Path & path, Source & source, mode_t mode = 0666, bool sync = false);
+void writeFile(const Path & path, Source & source, mode_t mode = 0666);
+
+class AutoCloseFD; // forward-declaration needed because this moved around in Lix
+void writeFile(AutoCloseFD & fd, const std::string& s, mode_t mode = 0666);
+
+/* Write a string to a file and flush the file and its parent directory to disk. */
+void writeFileAndSync(const Path & path, const std::string& s, mode_t mode = 0666);
 
 /* Flush a file's parent directory to disk */
 void syncParent(const Path & path);

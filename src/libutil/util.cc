@@ -333,12 +333,42 @@ void readFile(const Path & path, Sink & sink)
 }
 
 
-void writeFile(const Path & path, const string & s, mode_t mode, bool sync)
+void writeFile(const Path & path, const string & s, mode_t mode)
 {
     AutoCloseFD fd = open(path.c_str(), O_WRONLY | O_TRUNC | O_CREAT | O_CLOEXEC, mode);
     if (!fd)
         throw SysError(format("opening file '%1%'") % path);
+
+    writeFile(fd, s, mode);
+
+    /* Close explicitly to propagate the exceptions. */
+    fd.close();
+}
+
+void writeFile(AutoCloseFD & fd, const std::string& s, mode_t mode)
+{
+    assert(fd);
     writeFull(fd.get(), s);
+}
+
+void writeFileAndSync(const Path & path, const std::string& s, mode_t mode)
+{
+    {
+        AutoCloseFD fd{open(path.c_str(), O_WRONLY | O_TRUNC | O_CREAT | O_CLOEXEC, mode)};
+        if (!fd)
+            throw SysError("opening file '%1%'", path);
+
+        writeFile(fd, s, mode);
+        fd.fsync();
+        /* Close explicitly to ensure that exceptions are propagated. */
+        fd.close();
+    }
+
+    syncParent(path);
+}
+
+static void closeForWrite(const Path & path, AutoCloseFD & fd, bool sync)
+{
     if (sync)
         fd.fsync();
     // Explicitly close to make sure exceptions are propagated.
@@ -347,8 +377,7 @@ void writeFile(const Path & path, const string & s, mode_t mode, bool sync)
         syncParent(path);
 }
 
-
-void writeFile(const Path & path, Source & source, mode_t mode, bool sync)
+void writeFile(const Path & path, Source & source, mode_t mode)
 {
     AutoCloseFD fd = open(path.c_str(), O_WRONLY | O_TRUNC | O_CREAT | O_CLOEXEC, mode);
     if (!fd)
@@ -363,12 +392,7 @@ void writeFile(const Path & path, Source & source, mode_t mode, bool sync)
         } catch (EndOfFile &) { break; }
     }
 
-    if (sync)
-        fd.fsync();
-    // Explicitly close to make sure exceptions are propagated.
-    fd.close();
-    if (sync)
-        syncParent(path);
+    closeForWrite(path, fd, false);
 }
 
 void syncParent(const Path & path)
