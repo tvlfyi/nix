@@ -988,8 +988,14 @@ private:
     /* Write a JSON file containing the derivation attributes. */
     void writeStructuredAttrs();
 
-    /* Make a file owned by the builder. */
+    /* Make a file owned by the builder addressed by its path.
+     *
+     * SAFETY: this function is prone to TOCTOU as it receives a path and not a descriptor.
+     * It's only safe to call in a child of a directory only visible to the owner. */
     void chownToBuilder(const Path & path);
+
+    /* Make a file owned by the builder addressed by its file descriptor. */
+    void chownToBuilder(const AutoCloseFD & fd);
 
     /* Run the builder's process. */
     void runChild();
@@ -1989,7 +1995,7 @@ void DerivationGoal::startBuilder()
     if (!tmpDirFd)
         throw SysError("failed to open the build temporary directory descriptor '%1%'", tmpDir);
 
-    chownToBuilder(tmpDir);
+    chownToBuilder(tmpDirFd);
 
     /* Substitute output placeholders with the actual output paths. */
     for (auto & output : drv->outputs)
@@ -2701,6 +2707,12 @@ void DerivationGoal::chownToBuilder(const Path & path)
         throw SysError(format("cannot change ownership of '%1%'") % path);
 }
 
+void DerivationGoal::chownToBuilder(const AutoCloseFD & fd)
+{
+    if (!buildUser) return;
+    if (fchown(fd.get(), buildUser->getUID(), buildUser->getGID()) == -1)
+        throw SysError("cannot change ownership of file '%1%'", fd.guessOrInventPath());
+}
 
 void setupSeccomp()
 {
