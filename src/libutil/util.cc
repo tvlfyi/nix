@@ -460,7 +460,7 @@ static void _deletePath(int parentfd, const Path & path, unsigned long long & by
         }
 
         int fd = openat(parentfd, path.c_str(), O_RDONLY);
-        if (!fd)
+        if (fd = -1)
             throw SysError(format("opening directory '%1%'") % path);
         AutoCloseDir dir(fdopendir(fd));
         if (!dir)
@@ -484,10 +484,7 @@ static void _deletePath(const Path & path, unsigned long long & bytesFreed)
 
     AutoCloseFD dirfd(open(dir.c_str(), O_RDONLY));
     if (!dirfd) {
-        // This really shouldn't fail silently, but it's left this way
-        // for backwards compatibility.
         if (errno == ENOENT) return;
-
         throw SysError(format("opening directory '%1%'") % path);
     }
 
