@@ -436,16 +436,16 @@ void writeLine(int fd, string s)
 }
 
 
-static void _deletePath(int parentfd, const Path & path, unsigned long long & bytesFreed)
+static void _deletePath(int parentfd, const Path& name, unsigned long long & bytesFreed)
 {
+    /* This ensures that `name` is an immediate child of `parentfd`. */
+    assert(!name.empty() && name.find('/') == std::string::npos && "`name` is an immediate child to `parentfd`");
     checkInterrupt();
-
-    string name(baseNameOf(path));
 
     struct stat st;
     if (fstatat(parentfd, name.c_str(), &st, AT_SYMLINK_NOFOLLOW) == -1) {
         if (errno == ENOENT) return;
-        throw SysError(format("getting status of '%1%'") % path);
+        throw SysError("getting status of '%1%' in directory '%2%'", name, guessOrInventPathFromFD(parentfd));
     }
 
     if (!S_ISDIR(st.st_mode) && st.st_nlink == 1)
@@ -455,24 +455,25 @@ static void _deletePath(int parentfd, const Path & path, unsigned long long & by
         /* Make the directory accessible. */
         const auto PERM_MASK = S_IRUSR | S_IWUSR | S_IXUSR;
         if ((st.st_mode & PERM_MASK) != PERM_MASK) {
-            if (fchmodat(parentfd, name.c_str(), st.st_mode | PERM_MASK, 0) == -1)
-                throw SysError(format("chmod '%1%'") % path);
+            if (fchmodat(parentfd, name.c_str(), st.st_mode | PERM_MASK, 0) == -1) {
+                throw SysError("chmod '%1%' in directory '%2%'", name, guessOrInventPathFromFD(parentfd));
+            }
         }
 
-        int fd = openat(parentfd, path.c_str(), O_RDONLY);
+        int fd = openat(parentfd, name.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
         if (fd = -1)
-            throw SysError(format("opening directory '%1%'") % path);
+            throw SysError("opening directory '%1%' in directory '%2%'", name, guessOrInventPathFromFD(parentfd));
         AutoCloseDir dir(fdopendir(fd));
         if (!dir)
-            throw SysError(format("opening directory '%1%'") % path);
-        for (auto & i : readDirectory(dir.get(), path))
-            _deletePath(dirfd(dir.get()), path + "/" + i.name, bytesFreed);
+            throw SysError("opening directory '%1%' in directory '%2%'", name, guessOrInventPathFromFD(parentfd));
+        for (auto & i : readDirectory(dir.get(), name))
+            _deletePath(dirfd(dir.get()), i.name, bytesFreed);
     }
 
     int flags = S_ISDIR(st.st_mode) ? AT_REMOVEDIR : 0;
     if (unlinkat(parentfd, name.c_str(), flags) == -1) {
         if (errno == ENOENT) return;
-        throw SysError(format("cannot unlink '%1%'") % path);
+        throw SysError("cannot unlink '%1%' in directory '%2%'", name, guessOrInventPathFromFD(parentfd));
     }
 }
 
@@ -488,7 +489,7 @@ static void _deletePath(const Path & path, unsigned long long & bytesFreed)
         throw SysError(format("opening directory '%1%'") % path);
     }
 
-    _deletePath(dirfd.get(), path, bytesFreed);
+    _deletePath(dirfd.get(), baseNameOf(path).data(), bytesFreed);
 }
 
 
