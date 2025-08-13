@@ -66,8 +66,8 @@ let
       "doc"
     ];
 
-    # TODO(tazjin): merge https://github.com/tvlfyi/nix/pull/7 and remove this line
-    env.CXXFLAGS = "-std=c++20" + lib.optionalString stdenv.hostPlatform.isDarwin " -fexperimental-library";
+    # TODO(sterni): move check into autoconf
+    env.CXXFLAGS = lib.optionalString stdenv.hostPlatform.isDarwin " -fexperimental-library";
 
     hardeningEnable = lib.optionals (!stdenv.hostPlatform.isDarwin) [ "pie" ];
     hardeningDisable = [
