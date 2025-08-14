@@ -2174,7 +2174,10 @@ void EvalState::createBaseEnv()
         addConstant("__currentSystem", v);
     }
 
-    mkString(v, nixVersion);
+    /* Set our user agent string, so we can evaluate Nixpkgs.
+       See also <https://git.lix.systems/lix-project/lix/src/commit/4a119e6e46f/lix/libexpr/builtin-constants/nixVersion.md>.
+    */
+    mkString(v, "2.18.3-tvl-cppnix-2.3-actual");
     addConstant("__nixVersion", v);
 
     mkString(v, store->storeDir);
