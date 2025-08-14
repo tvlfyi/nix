@@ -1,5 +1,5 @@
 { nix ? builtins.fetchGit ./.
-, nixpkgs ? builtins.fetchTarball https://github.com/NixOS/nixpkgs/archive/nixos-21.05-small.tar.gz
+, nixpkgs ? <nixpkgs>
 , officialRelease ? false
 , systems ? [ "x86_64-linux" "i686-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ]
 }:
