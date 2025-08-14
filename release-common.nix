@@ -59,7 +59,7 @@ rec {
     ]
     ++ lib.optionals stdenv.isLinux [libseccomp (pkgs.util-linuxMinimal or pkgs.utillinuxMinimal)]
     ++ lib.optional (stdenv.isLinux || stdenv.isDarwin) libsodium
-    ++ lib.optional (stdenv.isLinux || stdenv.isDarwin)
+    ++ lib.optional (false && (stdenv.isLinux || stdenv.isDarwin))
       ((aws-sdk-cpp.override {
         apis = ["s3" "transfer"];
         customMemoryManagement = false;
