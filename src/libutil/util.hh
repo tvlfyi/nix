@@ -109,6 +109,15 @@ void writeFile(const Path & path, const string & s, mode_t mode = 0666);
 
 void writeFile(const Path & path, Source & source, mode_t mode = 0666);
 
+class AutoCloseFD; // forward-declaration needed because this moved around in Lix
+void writeFile(AutoCloseFD & fd, const std::string& s, mode_t mode = 0666);
+
+/* Write a string to a file and flush the file and its parent directory to disk. */
+void writeFileAndSync(const Path & path, const std::string& s, mode_t mode = 0666);
+
+/* Flush a file's parent directory to disk */
+void syncParent(const Path & path);
+
 /* Read a line from a file descriptor. */
 string readLine(int fd);
 
@@ -186,6 +195,13 @@ public:
     operator Path() const { return path; }
 };
 
+/*
+ * Will attempt to guess *A* path associated that might lead to the same file as used by this
+ * file descriptor.
+ *
+ * The returned string should NEVER be used as a valid path.
+ */
+std::string guessOrInventPathFromFD(int fd);
 
 class AutoCloseFD
 {
@@ -202,6 +218,15 @@ public:
     explicit operator bool() const;
     int release();
     void close();
+    void fsync();
+
+    /*
+     * Will attempt to guess *A* path associated that might lead to the same file as used by this
+     * file descriptor.
+     *
+     * The returned string should NEVER be used as a valid path.
+     */
+    std::string guessOrInventPath() const { return guessOrInventPathFromFD(fd); }
 };
 
 

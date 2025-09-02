@@ -819,6 +819,9 @@ private:
     /* The temporary directory. */
     Path tmpDir;
 
+    /* The temporary directory file descriptor */
+    AutoCloseFD tmpDirFd;
+
     /* The path of the temporary directory in the sandbox. */
     Path tmpDirInSandbox;
 
@@ -985,8 +988,14 @@ private:
     /* Write a JSON file containing the derivation attributes. */
     void writeStructuredAttrs();
 
-    /* Make a file owned by the builder. */
+    /* Make a file owned by the builder addressed by its path.
+     *
+     * SAFETY: this function is prone to TOCTOU as it receives a path and not a descriptor.
+     * It's only safe to call in a child of a directory only visible to the owner. */
     void chownToBuilder(const Path & path);
+
+    /* Make a file owned by the builder addressed by its file descriptor. */
+    void chownToBuilder(const AutoCloseFD & fd);
 
     /* Run the builder's process. */
     void runChild();
@@ -1980,7 +1989,13 @@ void DerivationGoal::startBuilder()
     auto drvName = storePathToName(drvPath);
     tmpDir = createTempDir("", "nix-build-" + drvName, false, false, 0700);
 
-    chownToBuilder(tmpDir);
+    /* The TOCTOU between the previous mkdir call and this open call is unavoidable due to
+     * POSIX semantics.*/
+    tmpDirFd = AutoCloseFD{open(tmpDir.c_str(), O_RDONLY | O_NOFOLLOW | O_DIRECTORY)};
+    if (!tmpDirFd)
+        throw SysError("failed to open the build temporary directory descriptor '%1%'", tmpDir);
+
+    chownToBuilder(tmpDirFd);
 
     /* Substitute output placeholders with the actual output paths. */
     for (auto & output : drv->outputs)
@@ -2496,8 +2511,15 @@ void DerivationGoal::initTmpDir() {
             } else {
                 string fn = ".attr-" + std::to_string(fileNr++);
                 Path p = tmpDir + "/" + fn;
-                writeFile(p, rewriteStrings(i.second, inputRewrites));
-                chownToBuilder(p);
+
+                AutoCloseFD passAsFileFd{openat(tmpDirFd.get(), fn.c_str(), O_WRONLY | O_TRUNC | O_CREAT | O_CLOEXEC | O_EXCL | O_NOFOLLOW, 0666)};
+                if (!passAsFileFd) {
+                    throw SysError("opening `passAsFile` file in the sandbox '%1%'", p);
+                }
+
+                writeFile(passAsFileFd, rewriteStrings(i.second, inputRewrites));
+                chownToBuilder(passAsFileFd);
+
                 env[i.first + "Path"] = tmpDirInSandbox + "/" + fn;
             }
         }
@@ -2692,6 +2714,12 @@ void DerivationGoal::chownToBuilder(const Path & path)
         throw SysError(format("cannot change ownership of '%1%'") % path);
 }
 
+void DerivationGoal::chownToBuilder(const AutoCloseFD & fd)
+{
+    if (!buildUser) return;
+    if (fchown(fd.get(), buildUser->getUID(), buildUser->getGID()) == -1)
+        throw SysError("cannot change ownership of file '%1%'", fd.guessOrInventPath());
+}
 
 void setupSeccomp()
 {

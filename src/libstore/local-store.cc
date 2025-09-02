@@ -159,7 +159,7 @@ LocalStore::LocalStore(const Params & params)
     else if (curSchema == 0) { /* new store */
         curSchema = nixSchemaVersion;
         openDB(*state, true);
-        writeFile(schemaPath, (format("%1%") % nixSchemaVersion).str());
+        writeFileAndSync(schemaPath, (format("%1%") % nixSchemaVersion).str(), 0666);
     }
 
     else if (curSchema < nixSchemaVersion) {
@@ -207,7 +207,7 @@ LocalStore::LocalStore(const Params & params)
             txn.commit();
         }
 
-        writeFile(schemaPath, (format("%1%") % nixSchemaVersion).str());
+        writeFileAndSync(schemaPath, (format("%1%") % nixSchemaVersion).str(), 0666);
 
         lockFile(globalLock.get(), ltRead, true);
     }

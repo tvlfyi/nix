@@ -266,16 +266,13 @@ bool isLink(const Path & path)
 }
 
 
-DirEntries readDirectory(const Path & path)
+DirEntries readDirectory(DIR *dir, const Path & path)
 {
     DirEntries entries;
     entries.reserve(64);
 
-    AutoCloseDir dir(opendir(path.c_str()));
-    if (!dir) throw SysError(format("opening directory '%1%'") % path);
-
     struct dirent * dirent;
-    while (errno = 0, dirent = readdir(dir.get())) { /* sic */
+    while (errno = 0, dirent = readdir(dir)) { /* sic */
         checkInterrupt();
         string name = dirent->d_name;
         if (name == "." || name == "..") continue;
@@ -290,6 +287,14 @@ DirEntries readDirectory(const Path & path)
     if (errno) throw SysError(format("reading directory '%1%'") % path);
 
     return entries;
+}
+
+DirEntries readDirectory(const Path & path)
+{
+    AutoCloseDir dir(opendir(path.c_str()));
+    if (!dir) throw SysError(format("opening directory '%1%'") % path);
+
+    return readDirectory(dir.get(), path);
 }
 
 
@@ -338,9 +343,44 @@ void writeFile(const Path & path, const string & s, mode_t mode)
     AutoCloseFD fd = open(path.c_str(), O_WRONLY | O_TRUNC | O_CREAT | O_CLOEXEC, mode);
     if (!fd)
         throw SysError(format("opening file '%1%'") % path);
+
+    writeFile(fd, s, mode);
+
+    /* Close explicitly to propagate the exceptions. */
+    fd.close();
+}
+
+void writeFile(AutoCloseFD & fd, const std::string& s, mode_t mode)
+{
+    assert(fd);
     writeFull(fd.get(), s);
 }
 
+void writeFileAndSync(const Path & path, const std::string& s, mode_t mode)
+{
+    {
+        AutoCloseFD fd{open(path.c_str(), O_WRONLY | O_TRUNC | O_CREAT | O_CLOEXEC, mode)};
+        if (!fd)
+            throw SysError("opening file '%1%'", path);
+
+        writeFile(fd, s, mode);
+        fd.fsync();
+        /* Close explicitly to ensure that exceptions are propagated. */
+        fd.close();
+    }
+
+    syncParent(path);
+}
+
+static void closeForWrite(const Path & path, AutoCloseFD & fd, bool sync)
+{
+    if (sync)
+        fd.fsync();
+    // Explicitly close to make sure exceptions are propagated.
+    fd.close();
+    if (sync)
+        syncParent(path);
+}
 
 void writeFile(const Path & path, Source & source, mode_t mode)
 {
@@ -356,8 +396,17 @@ void writeFile(const Path & path, Source & source, mode_t mode)
             writeFull(fd.get(), (unsigned char *) buf.data(), n);
         } catch (EndOfFile &) { break; }
     }
+
+    closeForWrite(path, fd, false);
 }
 
+void syncParent(const Path & path)
+{
+    AutoCloseFD fd = open(dirOf(path).c_str(), O_RDONLY, 0);
+    if (!fd)
+        throw SysError("opening file '%1%'", path);
+    fd.fsync();
+}
 
 string readLine(int fd)
 {
@@ -387,14 +436,16 @@ void writeLine(int fd, string s)
 }
 
 
-static void _deletePath(const Path & path, unsigned long long & bytesFreed)
+static void _deletePath(int parentfd, const Path& name, unsigned long long & bytesFreed)
 {
+    /* This ensures that `name` is an immediate child of `parentfd`. */
+    assert(!name.empty() && name.find('/') == std::string::npos && "`name` is an immediate child to `parentfd`");
     checkInterrupt();
 
     struct stat st;
-    if (lstat(path.c_str(), &st) == -1) {
+    if (fstatat(parentfd, name.c_str(), &st, AT_SYMLINK_NOFOLLOW) == -1) {
         if (errno == ENOENT) return;
-        throw SysError(format("getting status of '%1%'") % path);
+        throw SysError("getting status of '%1%' in directory '%2%'", name, guessOrInventPathFromFD(parentfd));
     }
 
     if (!S_ISDIR(st.st_mode) && st.st_nlink == 1)
@@ -404,18 +455,41 @@ static void _deletePath(const Path & path, unsigned long long & bytesFreed)
         /* Make the directory accessible. */
         const auto PERM_MASK = S_IRUSR | S_IWUSR | S_IXUSR;
         if ((st.st_mode & PERM_MASK) != PERM_MASK) {
-            if (chmod(path.c_str(), st.st_mode | PERM_MASK) == -1)
-                throw SysError(format("chmod '%1%'") % path);
+            if (fchmodat(parentfd, name.c_str(), st.st_mode | PERM_MASK, 0) == -1) {
+                throw SysError("chmod '%1%' in directory '%2%'", name, guessOrInventPathFromFD(parentfd));
+            }
         }
 
-        for (auto & i : readDirectory(path))
-            _deletePath(path + "/" + i.name, bytesFreed);
+        int fd = openat(parentfd, name.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+        if (fd = -1)
+            throw SysError("opening directory '%1%' in directory '%2%'", name, guessOrInventPathFromFD(parentfd));
+        AutoCloseDir dir(fdopendir(fd));
+        if (!dir)
+            throw SysError("opening directory '%1%' in directory '%2%'", name, guessOrInventPathFromFD(parentfd));
+        for (auto & i : readDirectory(dir.get(), name))
+            _deletePath(dirfd(dir.get()), i.name, bytesFreed);
     }
 
-    if (remove(path.c_str()) == -1) {
+    int flags = S_ISDIR(st.st_mode) ? AT_REMOVEDIR : 0;
+    if (unlinkat(parentfd, name.c_str(), flags) == -1) {
         if (errno == ENOENT) return;
-        throw SysError(format("cannot unlink '%1%'") % path);
+        throw SysError("cannot unlink '%1%' in directory '%2%'", name, guessOrInventPathFromFD(parentfd));
     }
+}
+
+static void _deletePath(const Path & path, unsigned long long & bytesFreed)
+{
+    Path dir = dirOf(path);
+    if (dir == "")
+        dir = "/";
+
+    AutoCloseFD dirfd(open(dir.c_str(), O_RDONLY));
+    if (!dirfd) {
+        if (errno == ENOENT) return;
+        throw SysError(format("opening directory '%1%'") % path);
+    }
+
+    _deletePath(dirfd.get(), baseNameOf(path).data(), bytesFreed);
 }
 
 
@@ -747,6 +821,28 @@ int AutoCloseFD::get() const
     return fd;
 }
 
+std::string guessOrInventPathFromFD(int fd)
+{
+    assert(fd >= 0);
+    /* On Linux, there's no F_GETPATH available.
+     * But we can read /proc/ */
+#if __linux__
+    try {
+        return readLink(fmt("/proc/self/fd/%1%", fd).c_str());
+    } catch (...) {
+    }
+#elif defined (HAVE_F_GETPATH) && HAVE_F_GETPATH
+    std::string fdName(PATH_MAX, '\0');
+    if (fcntl(fd, F_GETPATH, fdName.data()) != -1) {
+        fdName.resize(strlen(fdName.c_str()));
+        return fdName;
+    }
+#else
+#error "No implementation for retrieving file descriptors path."
+#endif
+
+    return fmt("<fd %i>", fd);
+}
 
 void AutoCloseFD::close()
 {
@@ -758,6 +854,19 @@ void AutoCloseFD::close()
     }
 }
 
+void AutoCloseFD::fsync()
+{
+  if (fd != -1) {
+      int result;
+#if __APPLE__
+      result = ::fcntl(fd, F_FULLFSYNC);
+#else
+      result = ::fsync(fd);
+#endif
+      if (result == -1)
+          throw SysError("fsync file descriptor %1%", fd);
+  }
+}
 
 AutoCloseFD::operator bool() const
 {
