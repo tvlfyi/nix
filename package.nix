@@ -37,6 +37,10 @@
 , gzip
 , gnutar
 
+, storeDir ? "/nix/store"
+, stateDir ? "/nix/var"
+, confDir ? "/etc"
+
   # RISC-V support in progress https://github.com/seccomp/libseccomp/pull/50
 , withLibseccomp ? lib.meta.availableOn stdenv.hostPlatform libseccomp
 , enableStatic ? stdenv.hostPlatform.isStatic
@@ -156,6 +160,9 @@ let
       '';
 
     configureFlags = [
+      "--with-store-dir=${storeDir}"
+      "--localstatedir=${stateDir}"
+      "--sysconfdir=${confDir}"
       "--enable-gc"
     ]
     ++ lib.optionals (!enableDocumentation) [
