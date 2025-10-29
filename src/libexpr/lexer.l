@@ -220,6 +220,14 @@ or          { return OR_KW; }
   return HPATH;
 }
 
+<PATH_START>{ANY} |
+<PATH_START><<EOF>> {
+  /* This should be unreachable: PATH_START is only entered after matching
+     PATH_SEG or HPATH_START, and we rewind to re-parse those same patterns.
+     This rule exists to satisfy flex's %option nodefault requirement. */
+  throw Error("BUG: reached unreachable PATH_START lexer rule");
+}
+
 {PATH} {
   if (yytext[yyleng-1] == '/')
     PUSH_STATE(INPATH_SLASH);
