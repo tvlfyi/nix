@@ -217,8 +217,9 @@ struct LegacySSHStore : public Store
                 << settings.maxLogSize;
         if (GET_PROTOCOL_MINOR(conn->remoteVersion) >= 3)
             conn->to
-                << settings.buildRepeat
-                << settings.enforceDeterminism;
+                << 0 // buildRepeat hasn't worked for ages anyway
+                << 0 // enforceDeterminism doesn't make sense without
+                ;
 
         conn->to.flush();
 

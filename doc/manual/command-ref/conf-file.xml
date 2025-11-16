@@ -302,12 +302,6 @@ false</literal>.</para>
   </listitem>
   </varlistentry>
 
-  <varlistentry xml:id="conf-enforce-determinism">
-    <term><literal>enforce-determinism</literal></term>
-
-    <listitem><para>See <xref linkend="conf-repeat" />.</para></listitem>
-  </varlistentry>
-
   <varlistentry xml:id="conf-extra-sandbox-paths">
     <term><literal>extra-sandbox-paths</literal></term>
 
@@ -718,17 +712,6 @@ password <replaceable>my-password</replaceable>
       implementation.</para>
 
     </listitem>
-  </varlistentry>
-
-  <varlistentry xml:id="conf-repeat"><term><literal>repeat</literal></term>
-
-    <listitem><para>How many times to repeat builds to check whether
-    they are deterministic. The default value is 0. If the value is
-    non-zero, every build is repeated the specified number of
-    times. If the contents of any of the runs differs from the
-    previous ones and <xref linkend="conf-enforce-determinism" /> is
-    true, the build is rejected and the resulting store paths are not
-    registered as “valid” in Nix’s database.</para></listitem>
   </varlistentry>
 
   <varlistentry xml:id="conf-require-sigs"><term><literal>require-sigs</literal></term>
@@ -1143,14 +1126,6 @@ function-trace exited /nix/store/.../example.nix:226:41 at 1565795253249941684
     <listitem><para><emphasis>Deprecated:</emphasis>
     <literal>build-max-silent-time</literal> is now an alias to
     <xref linkend="conf-max-silent-time" />.</para></listitem>
-  </varlistentry>
-
-  <varlistentry xml:id="conf-build-repeat">
-    <term><literal>build-repeat</literal></term>
-
-    <listitem><para><emphasis>Deprecated:</emphasis>
-    <literal>build-repeat</literal> is now an alias to
-    <xref linkend="conf-repeat" />.</para></listitem>
   </varlistentry>
 
   <varlistentry xml:id="conf-build-timeout">

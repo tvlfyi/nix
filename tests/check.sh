@@ -12,12 +12,6 @@ grep 'may not be deterministic' $TEST_ROOT/log
 
 clearStore
 
-nix-build dependencies.nix --no-out-link --repeat 3
-
-nix-build check.nix -A nondeterministic --no-out-link --repeat 1 2> $TEST_ROOT/log || status=$?
-[ "$status" = "1" ]
-grep 'differs from previous round' $TEST_ROOT/log
-
 path=$(nix-build check.nix -A fetchurl --no-out-link --hashed-mirrors '')
 
 chmod +w $path

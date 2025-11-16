@@ -904,11 +904,6 @@ private:
 
     BuildResult result;
 
-    /* The current round, if we're building multiple times. */
-    size_t curRound = 1;
-
-    size_t nrRounds;
-
     /* Path registration info from the previous round, if we're
        building multiple times. Since this contains the hash, it
        allows us to compare whether two rounds produced the same
@@ -1426,10 +1421,6 @@ void DerivationGoal::inputsRealised()
     /* Is this a fixed-output derivation? */
     fixedOutput = drv->isFixedOutput();
 
-    /* Don't repeat fixed-output derivations since they're already
-       verified by their output hash.*/
-    nrRounds = fixedOutput ? 1 : settings.buildRepeat + 1;
-
     /* Okay, try to build.  Note that here we don't wait for a build
        slot to become available, since we don't need one if there is a
        build hook. */
@@ -1519,12 +1510,11 @@ void DerivationGoal::tryToBuild()
         auto msg = fmt(
             buildMode == bmRepair ? "repairing outputs of '%s'" :
             buildMode == bmCheck ? "checking outputs of '%s'" :
-            nrRounds > 1 ? "building '%s' (round %d/%d)" :
-            "building '%s'", drvPath, curRound, nrRounds);
+            "building '%s'", drvPath);
         fmt("building '%s'", drvPath);
         if (hook) msg += fmt(" on '%s'", machineName);
         act = std::make_unique<Activity>(*logger, lvlInfo, actBuild, msg,
-            Logger::Fields{drvPath, hook ? machineName : "", curRound, nrRounds});
+            Logger::Fields{drvPath, hook ? machineName : "", 1, 1});
         mcRunningBuilds = std::make_unique<MaintainCount<uint64_t>>(worker.runningBuilds);
         worker.updateProgress();
     };
@@ -1760,14 +1750,6 @@ void DerivationGoal::buildDone()
         autoDelChroot.reset(); /* this runs the destructor */
 
         deleteTmpDir(true);
-
-        /* Repeat the build if necessary. */
-        if (curRound++ < nrRounds) {
-            outputLocks.unlock();
-            state = &DerivationGoal::tryToBuild;
-            worker.wakeUp(shared_from_this());
-            return;
-        }
 
         /* It is now safe to delete the lock files, since all future
            lockers will see that the output paths are valid; they will
@@ -3281,7 +3263,6 @@ void DerivationGoal::registerOutputs()
     InodesSeen inodesSeen;
 
     Path checkSuffix = ".check";
-    bool keepPreviousRound = settings.keepFailed || settings.runDiffHook;
 
     std::exception_ptr delayedException;
 
@@ -3473,10 +3454,8 @@ void DerivationGoal::registerOutputs()
                 debug(format("referenced input: '%1%'") % i);
         }
 
-        if (curRound == nrRounds) {
-            worker.store.optimisePath(actualPath); // FIXME: combine with scanForReferences()
-            worker.markContentsGood(path);
-        }
+        worker.store.optimisePath(actualPath); // FIXME: combine with scanForReferences()
+        worker.markContentsGood(path);
 
         info.path = path;
         info.narHash = hash.first;
@@ -3495,58 +3474,6 @@ void DerivationGoal::registerOutputs()
 
     /* Apply output checks. */
     checkOutputs(infos);
-
-    /* Compare the result with the previous round, and report which
-       path is different, if any.*/
-    if (curRound > 1 && prevInfos != infos) {
-        assert(prevInfos.size() == infos.size());
-        for (auto i = prevInfos.begin(), j = infos.begin(); i != prevInfos.end(); ++i, ++j)
-            if (!(*i == *j)) {
-                result.isNonDeterministic = true;
-                Path prev = i->second.path + checkSuffix;
-                bool prevExists = keepPreviousRound && pathExists(prev);
-                auto msg = prevExists
-                    ? fmt("output '%1%' of '%2%' differs from '%3%' from previous round", i->second.path, drvPath, prev)
-                    : fmt("output '%1%' of '%2%' differs from previous round", i->second.path, drvPath);
-
-                handleDiffHook(
-                    buildUser ? buildUser->getUID() : getuid(),
-                    buildUser ? buildUser->getGID() : getgid(),
-                    prev, i->second.path, drvPath, tmpDir);
-
-                if (settings.enforceDeterminism)
-                    throw NotDeterministic(msg);
-
-                printError(msg);
-                curRound = nrRounds; // we know enough, bail out early
-            }
-    }
-
-    /* If this is the first round of several, then move the output out
-       of the way. */
-    if (nrRounds > 1 && curRound == 1 && curRound < nrRounds && keepPreviousRound) {
-        for (auto & i : drv->outputs) {
-            Path prev = i.second.path + checkSuffix;
-            deletePath(prev);
-            Path dst = i.second.path + checkSuffix;
-            if (rename(i.second.path.c_str(), dst.c_str()))
-                throw SysError(format("renaming '%1%' to '%2%'") % i.second.path % dst);
-        }
-    }
-
-    if (curRound < nrRounds) {
-        prevInfos = infos;
-        return;
-    }
-
-    /* Remove the .check directories if we're done. FIXME: keep them
-       if the result was not determistic? */
-    if (curRound == nrRounds) {
-        for (auto & i : drv->outputs) {
-            Path prev = i.second.path + checkSuffix;
-            deletePath(prev);
-        }
-    }
 
     /* Register each output path as valid, and register the sets of
        paths referenced by each of them.  If there are cycles in the
@@ -3826,10 +3753,9 @@ void DerivationGoal::flushLine()
         ;
 
     else {
-        if (settings.verboseBuild &&
-            (settings.printRepeatedBuilds || curRound == 1))
+        if (settings.verboseBuild) {
             printError(currentLogLine);
-        else {
+        } else {
             logTail.push_back(currentLogLine);
             if (logTail.size() > settings.logLines) logTail.pop_front();
         }

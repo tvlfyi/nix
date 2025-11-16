@@ -162,11 +162,6 @@ public:
         "before being killed (0 means no limit).",
         {"build-max-log-size"}};
 
-    /* When buildRepeat > 0 and verboseBuild == true, whether to print
-       repeated builds (i.e. builds other than the first one) to
-       stderr. Hack to prevent Hydra logs from being polluted. */
-    bool printRepeatedBuilds = true;
-
     Setting<unsigned int> pollInterval{this, 5, "build-poll-interval",
         "How often (in seconds) to poll for locks."};
 
@@ -218,10 +213,6 @@ public:
         "Additional paths to make available inside the build sandbox.",
         {"build-extra-chroot-dirs", "build-extra-sandbox-paths"}};
 
-    Setting<size_t> buildRepeat{this, 0, "repeat",
-        "The number of times to repeat a build in order to verify determinism.",
-        {"build-repeat"}};
-
 #if __linux__
     Setting<std::string> sandboxShmSize{this, "50%", "sandbox-dev-shm-size",
         "The size of /dev/shm in the build sandbox."};
@@ -246,9 +237,6 @@ public:
     PathSetting diffHook{this, true, "", "diff-hook",
         "A program that prints out the differences between the two paths "
         "specified on its command line."};
-
-    Setting<bool> enforceDeterminism{this, true, "enforce-determinism",
-        "Whether to fail if repeated builds produce different output."};
 
     Setting<Strings> trustedPublicKeys{this,
         {"cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="},
