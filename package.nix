@@ -223,6 +223,35 @@ let
           nix = self;
         }
       );
+
+      # Build instructions:
+      #   mg shell :shell
+      #   configurePhase
+      #   buildPhase
+      #   installPhase
+      #   ./inst/bin/nix-instantiate --version
+      #
+      # You may also want to run:
+      #   export PKG_CONFIG_PATH=$prefix/lib/pkgconfig:$PKG_CONFIG_PATH
+      #   export PATH=$prefix/bin:$PATH
+      shell = self.overrideAttrs (_: {
+        outputs = [ "out" ];
+        separateDebugInfo = false;
+        dontAddPrefix = true;
+        preConfigure = "";
+        configureFlags = [
+          "--with-store-dir=${storeDir}"
+          "--localstatedir=${stateDir}"
+          "--sysconfdir=${confDir}"
+        ];
+        makeFlags = [ ];
+
+        shellHook = ''
+          export prefix=${toString ./.}/inst
+          installFlags="sysconfdir=$prefix/etc"
+          configureFlags+=" --prefix=$prefix"
+        '';
+      });
     };
 
     meta = {
