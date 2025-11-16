@@ -2,7 +2,6 @@
 , path # pkgs.path
 , nixDependencies
 , lib
-, fetchFromGitHub
 , autoreconfHook
 , perl
 , callPackage
@@ -50,14 +49,8 @@
 let
   inherit (nixDependencies) boehmgc;
 
-  version = "2.3.18-${lib.substring 0 7 rev}";
-  rev = "4f415e610b3d1571b817ebe646d2c47bcfd1b414";
-  src = fetchFromGitHub {
-    owner = "tvlfyi";
-    repo = "nix";
-    inherit rev;
-    sha256 = "0wanlrfb7px32h8f33nzsxz78fvk715dmq30dp5a2f15640zw3vs";
-  };
+  version = "2.3.18-canon";
+  src = lib.cleanSource ./.;
 
   self = stdenv.mkDerivation {
     pname = "nix";
