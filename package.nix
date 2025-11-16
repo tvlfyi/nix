@@ -226,6 +226,7 @@ let
 
       # Build instructions:
       #   mg shell :shell
+      #   ./bootstrap.sh
       #   configurePhase
       #   buildPhase
       #   installPhase
