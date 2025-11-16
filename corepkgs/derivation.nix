@@ -8,12 +8,14 @@ let
   strict = derivationStrict drvAttrs;
 
   commonAttrs = drvAttrs // (builtins.listToAttrs outputsList) //
-    { all = map (x: x.value) outputsList;
+    {
+      all = map (x: x.value) outputsList;
       inherit drvAttrs;
     };
 
   outputToAttrListElement = outputName:
-    { name = outputName;
+    {
+      name = outputName;
       value = commonAttrs // {
         outPath = builtins.getAttr outputName strict;
         drvPath = strict.drvPath;
@@ -24,4 +26,5 @@ let
 
   outputsList = map outputToAttrListElement outputs;
 
-in (builtins.head outputsList).value
+in
+(builtins.head outputsList).value
