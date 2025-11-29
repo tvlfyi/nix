@@ -69,7 +69,6 @@ let
     # TODO(sterni): move check into autoconf
     env.CXXFLAGS = lib.optionalString stdenv.hostPlatform.isDarwin " -fexperimental-library";
 
-    hardeningEnable = lib.optionals (!stdenv.hostPlatform.isDarwin) [ "pie" ];
     hardeningDisable = [
       "shadowstack"
     ]
