@@ -228,6 +228,9 @@ PKG_CHECK_MODULES([LIBBROTLI], [libbrotlienc libbrotlidec], [CXXFLAGS="$LIBBROTL
 # Look for libzstd.
 PKG_CHECK_MODULES([LIBZSTD], [libzstd], [CXXFLAGS="$LIBZSTD_CFLAGS $CXXFLAGS"])
 
+# Look for nlohmann/json
+PKG_CHECK_MODULES([NHLOHMANN_JSON], [nlohmann_json >= 3.5])
+
 # Look for libseccomp, required for Linux sandboxing.
 case "$host_os" in
   linux*)

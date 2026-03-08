@@ -28,6 +28,7 @@
 , xz
 , gtest
 , libarchive
+, nlohmann_json
 , busybox-sandbox-shell
 
   # cross incorrect references fix
@@ -104,6 +105,7 @@ let
       xz
       gtest
       libarchive
+      nlohmann_json
     ]
     ++ lib.optionals (stdenv.hostPlatform.isx86_64) [
       libcpuid
