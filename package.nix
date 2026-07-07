@@ -1,5 +1,4 @@
 { stdenv
-, path # pkgs.path
 , nixDependencies
 , lib
 , autoreconfHook
@@ -220,7 +219,7 @@ let
       aws-sdk-cpp = null;
 
       perl-bindings = perl.pkgs.toPerlModule (
-        callPackage (/* pkgs. */ path + "/pkgs/tools/package-management/nix/nix-perl.nix") {
+        callPackage ./nix-perl.nix {
           nix = self;
         }
       );
